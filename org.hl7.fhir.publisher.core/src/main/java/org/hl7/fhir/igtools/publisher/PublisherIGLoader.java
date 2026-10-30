@@ -29,7 +29,6 @@ import org.hl7.fhir.model.core.Enumerations.PublicationStatus;
 import org.hl7.fhir.model.utilities.ResourceUtilities;
 import org.hl7.fhir.model.utilities.formats.OutputStyle;
 import org.hl7.fhir.r4.formats.FormatUtilities;
-import org.hl7.fhir.r5.utils.structuremap.StructureMapUtilities;
 import org.hl7.fhir.services.conformance.R5ExtensionsLoader;
 import org.hl7.fhir.services.conformance.profile.ProfileUtilities;
 import org.hl7.fhir.services.context.ContextUtilities;
@@ -79,7 +78,6 @@ import org.hl7.fhir.validation.ValidatorUtils;
 import org.hl7.fhir.validation.instance.InstanceValidator;
 import org.hl7.fhir.validation.profile.ProfileValidator;
 import org.apache.commons.lang3.StringUtils;
-import org.w3._1999.xhtml.B;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -3512,8 +3510,8 @@ public class PublisherIGLoader extends PublisherBase {
     List<FetchedFile> resources = pf.fetcher.scan(settings.getSourceDir(), pf.context, pf.igpkp.isAutoPath(), makeExemptions());
     for (FetchedFile ff : resources) {
       ff.start("loadResources");
-      if (ff.getContentType().equals("adl")) {
-        loadArchetype(ff, "scan folder "+FileUtilities.getDirectoryForFile(ff.getStatedPath()));
+      if (ff.getContentType().equals("adl") || ff.getContentType().equals("adls")) {
+        loadArchetype(ff, "scan folder "+FileUtilities.getDirectoryForFile(ff.getStatedPath()), ff.getContentType());
       } else {
         try {
           if (!ff.matches(igf) && !isBundle(ff)) {
@@ -3549,8 +3547,8 @@ public class PublisherIGLoader extends PublisherBase {
     return fn;
   }
 
-  private boolean loadArchetype(FetchedFile f, String cause) throws Exception {
-    ArchetypeImporter.ProcessedArchetype pa = new ArchetypeImporter(this.pf.context, this.pf.igpkp.getCanonical()).importArchetype(f.getSource(), new File(f.getStatedPath()).getName());
+  private boolean loadArchetype(FetchedFile f, String cause, String contentType) throws Exception {
+    ArchetypeImporter.ProcessedArchetype pa = new ArchetypeImporter(this.pf.context, this.pf.igpkp.getCanonical()).importArchetype(f.getSource(), new File(f.getStatedPath()).getName(),contentType);
     Bundle bnd = pa.getBnd();
     pa.getSd().setUserData(UserDataNames.archetypeSource, pa.getSource());
     pa.getSd().setUserData(UserDataNames.archetypeName, pa.getSourceName());

@@ -368,7 +368,7 @@ public class SimpleFetcher implements IFetchFile, ILogicalModelResolver {
                     }
                   }
                 }
-              if (!ok && !Utilities.existsInList(ext, "xml", "ttl", "html", "txt", "fml", "adl")) {
+              if (!ok && !Utilities.existsInList(ext, "xml", "ttl", "html", "txt", "fml", "adl", "adls")) {
                 try {
                   List<ValidatedFragment> el = new org.hl7.fhir.services.elementmodel.JsonParser(context).setLogicalModelResolver(this).parse(new FileInputStream(fn));
                   if (el.size() == 1) {
@@ -387,7 +387,7 @@ public class SimpleFetcher implements IFetchFile, ILogicalModelResolver {
                   }
                 }
               }
-              if (!ok && !Utilities.existsInList(ext, "json", "xml", "html", "txt", "fml", "adl")) {
+              if (!ok && !Utilities.existsInList(ext, "json", "xml", "html", "txt", "fml", "adl", "adls")) {
                 try {
                   org.hl7.fhir.services.elementmodel.Element e = new org.hl7.fhir.services.elementmodel.TurtleParser(context).parseSingle(new FileInputStream(fn), null);
                   addFileForElement(res, f, e, "application/fhir+turtle");
@@ -405,7 +405,7 @@ public class SimpleFetcher implements IFetchFile, ILogicalModelResolver {
                   }
                 }
               }              
-              if (!ok && !Utilities.existsInList(ext, "json", "xml", "html", "txt", "adl")) {
+              if (!ok && !Utilities.existsInList(ext, "json", "xml", "html", "txt", "adl", "adls")) {
                 try {
                   if (fp==null) {
                     fp = new FmlParser(context, fpe);
@@ -428,8 +428,8 @@ public class SimpleFetcher implements IFetchFile, ILogicalModelResolver {
               }            
               if (!ok && !Utilities.existsInList(ext, "json", "xml", "html", "txt", "ttl") && context.hasPackage("openehr.base", null)) {
                 try {
-                  new ArchetypeImporter(context, pkp.getCanonical()).checkArchetype(new FileInputStream(f), f.getName());
-                  addFileForElement(res, f, null, "adl");
+                  new ArchetypeImporter(context, pkp.getCanonical()).checkArchetype(new FileInputStream(f), f.getName(), ext);
+                  addFileForElement(res, f, null, ext);
                   count++;
                   ok = true;
                 } catch (Exception e) {
@@ -460,7 +460,7 @@ public class SimpleFetcher implements IFetchFile, ILogicalModelResolver {
   private List<String> fixedFileTypes() {
     return Utilities.strings(
         // known file types we have parsers for
-        "json", "ttl", "html", "txt", "fml", "adl",
+        "json", "ttl", "html", "txt", "fml", "adl","adls",
         
         // known files types to not even try parsing
         "jpg", "png", "gif", "mp3", "mp4", "pfd", "doc", "docx", "ppt", "pptx", "svg");

@@ -121,49 +121,53 @@ public class ArchetypeImporter {
   }
 
 
-  public void checkArchetype(byte[] content, String name) throws ParserConfigurationException, SAXException, IOException, ADLParseException {
-    checkArchetype(new ByteArrayInputStream(content), name);
+  public void checkArchetype(byte[] content, String name, String contentType) throws ParserConfigurationException, SAXException, IOException, ADLParseException {
+    checkArchetype(new ByteArrayInputStream(content), name, contentType);
   }
 
-  public void checkArchetype(InputStream stream, String name) throws ParserConfigurationException, SAXException, IOException, ADLParseException {
+  public void checkArchetype(InputStream stream, String name, String contentType) throws ParserConfigurationException, SAXException, IOException, ADLParseException {
     byte[] cnt = FileUtilities.streamToBytes(stream);
-    try {
-      archetype = load20(new ByteArrayInputStream(cnt));
-    } catch (Exception e20) {
+    if("adl".equals(contentType)) {
       try {
         archetype = load14(new ByteArrayInputStream(cnt));
       } catch (Exception e14) {
-        if (e20.getMessage().equals(e14.getMessage())) {
-          throw new FHIRException("Error reading "+name+": "+e20.getMessage(), e20);
-        } else {
-          throw new FHIRException("Error reading "+name+". ADL 1.4: "+e14.getMessage()+"; ADL 2: "+e20.getMessage(), e20);          
-        }
+        throw new FHIRException("Error reading "+name+". ADL 1.4: "+e14.getMessage());
       }
+    } else if ("adls".equals(contentType)) {
+      try {
+        archetype = load20(new ByteArrayInputStream(cnt));
+      } catch (Exception e20) {
+        throw new FHIRException("Error reading "+name+": "+e20.getMessage(), e20);
+      }
+    } else {
+      throw new FHIRException("Unknown file type for "+name);
     }
   }
   
-  public ProcessedArchetype importArchetype(byte[] content, String name) throws ParserConfigurationException, SAXException, IOException, ADLParseException {
-    return importArchetype(new ByteArrayInputStream(content), name);
+  public ProcessedArchetype importArchetype(byte[] content, String name, String contentType) throws ParserConfigurationException, SAXException, IOException, ADLParseException {
+    return importArchetype(new ByteArrayInputStream(content), name, contentType);
   }
 
-  public ProcessedArchetype importArchetype(InputStream stream, String name) throws ParserConfigurationException, SAXException, IOException, ADLParseException {
+  public ProcessedArchetype importArchetype(InputStream stream, String name, String contentType) throws ParserConfigurationException, SAXException, IOException, ADLParseException {
     atMap.clear();
-
+    System.out.println("Importing "+name);
     byte[] cnt = FileUtilities.streamToBytes(stream);
-    try {
-      archetype = load20(new ByteArrayInputStream(cnt));
-    } catch (Exception e20) {
+    if("adl".equals(contentType)) {
       try {
         archetype = load14(new ByteArrayInputStream(cnt));
       } catch (Exception e14) {
-        if (e20.getMessage().equals(e14.getMessage())) {
-          throw new FHIRException("Error reading "+name+": "+e20.getMessage(), e20);
-        } else {
-          throw new FHIRException("Error reading "+name+". ADL 1.4: "+e14.getMessage()+"; ADL 2: "+e20.getMessage(), e20);          
-        }
+        throw new FHIRException("Error reading "+name+". ADL 1.4: "+e14.getMessage());
       }
+    } else if ("adls".equals(contentType)) {
+      try {
+        archetype = load20(new ByteArrayInputStream(cnt));
+      } catch (Exception e20) {
+        throw new FHIRException("Error reading "+name+" ADL 2.0: "+e20.getMessage(), e20);
+      }
+    } else {
+      throw new FHIRException("Unknown file type for "+name);
     }
-
+   
     bnd = new Bundle();
     bnd.setType(BundleType.COLLECTION);
     bnd.setId(archetype.getArchetypeId().toString().replace("_", "-"));
@@ -175,10 +179,10 @@ public class ArchetypeImporter {
     sd.setVersion(archetype.getDescription().getOtherDetails().get("revision"));
     sd.setTitle(archetype.getArchetypeId().toString());
     sd.setName(Utilities.javaTokenize(sd.getId().substring(sd.getId().indexOf(".")+1), true));
-    if ("published".equals(archetype.getDescription().getLifecycleState().getCodeString())) {
+    if ("published".equals(archetype.getDescription().getLifecycleState())) {
       sd.setStatus(PublicationStatus.ACTIVE);
     } else {
-      System.out.println(archetype.getDescription().getLifecycleState().getCodeString());
+      System.out.println(archetype.getDescription().getLifecycleState());
       sd.setStatus(PublicationStatus.DRAFT);      
     }
     sd.setExperimental(false);
@@ -287,8 +291,8 @@ public class ArchetypeImporter {
         } else if (o instanceof CTerminologyCode) {
           CTerminologyCode c = (CTerminologyCode) o;
           if ("property".equals(name)) {
-            if (c.getConstraint().size() == 1 && c.getConstraint().get(0).startsWith("[openehr::")) {
-              Coding cc = new Coding("https://specifications.openehr.org/fhir/codesystem-property", c.getConstraint().get(0).substring(10).replace("]", ""), null); 
+            if (c.getConstraint() != null && c.getConstraint().startsWith("[openehr::")) {
+              Coding cc = new Coding("https://specifications.openehr.org/fhir/codesystem-property", c.getConstraint().substring(10).replace("]", ""), null); 
               defn.addExtension("http://openehr.org/fhir/StructureDefinition/property", cc);
             }
           } else if (bindingGoesOnParent(source.getRmTypeName(), name)) {
@@ -528,7 +532,8 @@ public class ArchetypeImporter {
     CodeSystem cs = null;
     
     Map<String, ConceptSetComponent> incs = new HashMap<String, ValueSet.ConceptSetComponent>();
-    for (String s : c.getConstraint()) {
+    //for (String s : c.getConstraint()) {
+      String s = c.getConstraint();
       String code = s;
       ConceptSetComponent inc;
       if (s.contains("::")) {
@@ -574,7 +579,7 @@ public class ArchetypeImporter {
         cd.setDefinition(lookupDesc(s));
       }
       inc.addConcept().setCode(code);
-    }
+    //}
     return vs.getUrl();
   }
 
