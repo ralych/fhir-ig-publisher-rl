@@ -15,7 +15,9 @@ import java.util.regex.Pattern;
 import javax.xml.parsers.ParserConfigurationException;
 
 import com.nedap.archie.adlparser.modelconstraints.BMMConstraintImposer;
-import com.nedap.archie.rminfo.MetaModels;
+import com.nedap.archie.rminfo.MetaModelProvider;
+import com.nedap.archie.rminfo.ModelNotFoundException;
+
 import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.services.context.IWorkerContext;
 import org.hl7.fhir.model.extensions.ExtensionDefinitions;
@@ -64,7 +66,9 @@ public class ArchetypeImporter {
   private String canonicalBase;
   private Element terminology;
   private Map<String, String> atMap = new HashMap<>();
-
+  
+  private MetaModelProvider metaModelProvider;
+  
   private Archetype archetype;
   private StructureDefinition sd;
   private Bundle bnd; 
@@ -113,6 +117,7 @@ public class ArchetypeImporter {
       tf = FileUtilities.fileToBytes("/Users/grahamegrieve/Downloads/openehr_terminology.xml");
     }
     terminology = XMLUtil.parseToDom(tf).getDocumentElement();
+    metaModelProvider = BuiltinReferenceModels.getMetaModelProvider();
   }
 
 
@@ -222,25 +227,28 @@ public class ArchetypeImporter {
     return new ProcessedArchetype(new String(cnt), name, archetype, bnd, sd);
   }
 
-  private Archetype load20(InputStream stream) throws ADLParseException, IOException {
+  protected Archetype load20(InputStream stream) throws ADLParseException, IOException {
     ADLParser parser = new ADLParser();
     Archetype archetype = parser.parse(stream);
     return archetype;
   }
 
-  private Archetype load14(InputStream stream) throws ParserConfigurationException, SAXException, IOException, ADLParseException {
-    ADL14ConversionConfiguration conversionConfiguration = new ADL14ConversionConfiguration();
-//    ADL14Parser parser = new ADL14Parser(BuiltinReferenceModels.getMetaModels());
-    MetaModels mms = BuiltinReferenceModels.getMetaModels();
-    ADL14Parser adl14Parser = new ADL14Parser(mms);
-    Archetype archetype = adl14Parser.parse(stream, conversionConfiguration);
-    if (archetype.getRmRelease() == null) { // It is always null in a real-life adl1.4 archetype.
-      archetype.setRmRelease("1.1.0"); // Without it the bmm cannot be found - 1.1.0 is required for DV_SCALE support.
+  protected Archetype load14(InputStream stream) throws ParserConfigurationException, SAXException, IOException, ADLParseException {
+    Archetype archetype = null;
+    try {
+      ADL14ConversionConfiguration conversionConfiguration = new ADL14ConversionConfiguration();
+      System.out.println("RM Release: "+conversionConfiguration.getRmRelease());
+      ADL14Parser adl14Parser = new ADL14Parser(metaModelProvider);
+      archetype = adl14Parser.parse(stream, conversionConfiguration);
+      BMMConstraintImposer constraintImposer = new BMMConstraintImposer(metaModelProvider.getMetaModel(archetype).getBmmModel());
+      constraintImposer.imposeConstraints(archetype.getDefinition()); // After this the archetype has the right existence constraints.
+    } catch (Exception e) {
+      if (e instanceof ModelNotFoundException && //
+        ((ModelNotFoundException) e).getMessage().contains("openEHR.EHR version null not found")) {
+        System.out.println("Error parsing ADL 1.4 archetype: missing attribute rm_release");
+      }
+      throw e;
     }
-    mms.selectModel(archetype);
-    BMMConstraintImposer constraintImposer = new BMMConstraintImposer(mms.getSelectedBmmModel());
-    constraintImposer.imposeConstraints(archetype.getDefinition()); // After this the archetype has the right existence constraints.
-//    Archetype archetype = parser.parse(stream, conversionConfiguration);
     return archetype;
   }
   
